@@ -7,7 +7,6 @@ from core.llm import load_model
 
 app = FastAPI(title="Local LLM HTTP (llama_cpp)")
 
-# Controllers
 app.include_router(health_router)
 app.include_router(chat_router)
 app.include_router(transcript_router, prefix="/youtube")

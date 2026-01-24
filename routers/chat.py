@@ -2,13 +2,14 @@ from typing import List, Dict
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from core.llm import run_completion
+from core.llm import run_completion, pick_model_path
 from core.prompt import build_simple_chat_prompt
-from core.state import model_path
+from core.llm import llm_settings
 
 router = APIRouter()
 
 
+# TODO: default values to config
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     history: List[Dict[str, str]] = []
@@ -35,10 +36,10 @@ def chat(req: ChatRequest):
         temperature=req.temperature,
         top_p=req.top_p,
         repeat_penalty=req.repeat_penalty,
-        stop=["</s>", "### User:", "### System:"],
+        stop=llm_settings().default_stop,
     )
 
     answer = out["choices"][0]["text"].strip()
     current_history.append({"user": req.message, "assistant": answer})
 
-    return ChatResponse(answer=answer, model_path=model_path or "", history_size=len(current_history))
+    return ChatResponse(answer=answer, model_path=pick_model_path(llm_settings().model_dir, llm_settings().model_pattern) or "", history_size=len(current_history))

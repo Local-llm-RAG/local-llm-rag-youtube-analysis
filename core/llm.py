@@ -1,45 +1,45 @@
-import os
-import time
 import glob
+import time
+from functools import lru_cache
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Iterator
+from typing import Optional, List, Iterator
+
 from fastapi import HTTPException
 from llama_cpp import Llama, CreateCompletionResponse
-from core.state import llm, model_path
 
-MODEL_DIR = os.getenv("MODEL_DIR", r"C:\models\bggpt-2.6b")
-PATTERN = os.getenv("MODEL_PATTERN", r"*Q4_K_M*.gguf")
-N_CTX = int(os.getenv("N_CTX", "2048"))
-N_THREADS = int(os.getenv("N_THREADS", "2"))
-N_GPU_LAYERS = int(os.getenv("N_GPU_LAYERS", "-1"))
+from util.app_settings import LLMSettings
+from util.loader import load_config
 
-DEFAULT_REPEAT_PENALTY = float(os.getenv("REPEAT_PENALTY", "1.1"))
-DEFAULT_STOP = ["</s>", "### Instruction:", "### Response:"]
-
-
-def pick_model_path(model_dir: str, pattern: str) -> str:
-    matches = glob.glob(str(Path(model_dir) / pattern))
-    if not matches:
-        raise FileNotFoundError(f"No GGUF found in {model_dir} matching {pattern}")
-    return matches[0]
+@lru_cache(maxsize=1)
+def llm_settings() -> LLMSettings:
+    return load_config(LLMSettings, section="llm")
 
 
 def load_model() -> None:
     global llm, model_path
 
-    model_path = pick_model_path(MODEL_DIR, PATTERN)
+    model_path = pick_model_path(llm_settings().model_dir, llm_settings().model_pattern)
 
     t0 = time.time()
     llm = Llama(
         model_path=model_path,
-        n_ctx=N_CTX,
-        n_threads=N_THREADS,
-        n_gpu_layers=N_GPU_LAYERS,
+        n_ctx=llm_settings().n_ctx,
+        n_threads=llm_settings().n_threads,
+        n_gpu_layers=llm_settings().n_gpu_layers,
         verbose=False,
     )
 
     print(f"[llama_cpp] Loaded model: {model_path}")
     print(f"[llama_cpp] Startup load time: {time.time() - t0:.2f}s")
+
+
+def pick_model_path(model_dir: str, pattern: str) -> str:
+    matches = glob.glob(str(Path(model_dir) / pattern))
+    if not matches:
+        raise FileNotFoundError(
+            f"No GGUF found in {model_dir} matching {pattern}"
+        )
+    return matches[0]
 
 
 def ensure_llm() -> Llama:
@@ -53,15 +53,17 @@ def run_completion(
     max_tokens: int,
     temperature: float,
     top_p: float,
-    repeat_penalty: float,
-    stop: Optional[List[str]],
+    repeat_penalty: Optional[float] = None,
+    stop: Optional[List[str]] = None,
 ) -> CreateCompletionResponse | Iterator[CreateCompletionResponse]:
     model = ensure_llm()
+    cfg = llm_settings().llm
+
     return model(
         prompt=prompt,
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
-        repeat_penalty=repeat_penalty,
-        stop=stop or DEFAULT_STOP,
+        repeat_penalty=repeat_penalty or cfg.default_repeat_penalty,
+        stop=stop or cfg.default_stop,
     )
