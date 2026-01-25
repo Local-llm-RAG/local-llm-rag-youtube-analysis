@@ -35,3 +35,11 @@ llm:
     - "</s>"
     - "### Instruction:"
     - "### Response:"
+
+embedding:
+  model_name: jinaai/jina-embeddings-v3
+  max_length: 1024
+  batch_size: 1
+  normalize: true
+  use_4bit: false
+  cache_dir: "C:/models/hf/hub"

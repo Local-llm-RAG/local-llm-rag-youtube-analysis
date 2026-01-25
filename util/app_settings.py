@@ -23,6 +23,14 @@ class YouTubeSettings(BaseModel):
     request_timeout_seconds: float
 
 
+class EmbeddingSettings(BaseModel):
+    model_name: str
+    max_length: int
+    batch_size: int
+    normalize: bool
+    use_4bit: bool
+    cache_dir: str
+
 class LLMSettings(BaseModel):
     system_prompt: str
 
@@ -42,3 +50,4 @@ class AppSettings(BaseModel):
     pool: PoolSettings
     youtube: YouTubeSettings
     llm: LLMSettings
+    embedding: EmbeddingSettings

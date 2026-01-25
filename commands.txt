@@ -1,1 +1,2 @@
-pip install -U "huggingface_hub[cli]", llama-cpp-python, fastapi uvicorn, youtube-transcript-api, pyyaml
+pip install -U "huggingface_hub[cli]", llama-cpp-python, fastapi uvicorn, youtube-transcript-api, pyyaml,
+fastapi, pydantic, torch --index-url https://download.pytorch.org/whl/cu121, transformers,einops, hf_xet, accelerate, einops, safetensors
