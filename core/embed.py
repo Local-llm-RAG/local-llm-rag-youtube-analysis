@@ -42,7 +42,6 @@ def load_embedding_model():
             bnb_4bit_use_double_quant=True,
             bnb_4bit_compute_dtype=torch.float16,
         )
-        print("quant_config initialized")
 
     model = AutoModel.from_pretrained(
         settings().model_name,
@@ -52,5 +51,6 @@ def load_embedding_model():
         torch_dtype=torch.float16,
         cache_dir=settings().cache_dir
     )
-    print("model initialized")
+    print("Embedding model initialized")
+    print("Model device:", next(model.parameters()).device)
     model.eval()

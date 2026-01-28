@@ -30,7 +30,6 @@ def load_model() -> None:
     )
 
     print(f"[llama_cpp] Loaded model: {model_path}")
-    print(f"[llama_cpp] Startup load time: {time.time() - t0:.2f}s")
 
 
 def pick_model_path(model_dir: str, pattern: str) -> str:

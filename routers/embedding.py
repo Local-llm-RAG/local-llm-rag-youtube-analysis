@@ -11,7 +11,8 @@ from pydantic import BaseModel, Field, conint
 import core.embed as embed
 from util.app_settings import EmbeddingSettings
 from util.loader import load_config
-
+import asyncio
+from starlette.concurrency import run_in_threadpool
 router = APIRouter()
 
 
@@ -24,9 +25,8 @@ class TaskType(str, Enum):
 class EmbedTranscriptRequest(BaseModel):
     text: str = Field(..., min_length=1, description="Full transcript to embed")
     task: TaskType = Field(TaskType.RETRIEVAL_PASSAGE, description="Embedding task type")
-    chunk_tokens: conint(ge=16, le=4096) = Field(256, description="Chunk size in tokens")
-    chunk_overlap: conint(ge=0, le=2048) = Field(32, description="Token overlap between chunks")
-    max_length: Optional[int] = Field(None, description="Override max token length (defaults to config)")
+    chunk_tokens: conint(ge=16, le=4096)
+    chunk_overlap: conint(ge=0, le=2048)
     normalize: Optional[bool] = Field(None, description="Override normalization (defaults to config)")
 
 
@@ -41,15 +41,21 @@ class EmbedTranscriptResponse(BaseModel):
 def settings() -> EmbeddingSettings:
     return load_config(EmbeddingSettings, section="embedding")
 
+#Lack of resources to create multiple tokenizer instances. So with the current implementation - one per time
+embed_sem = asyncio.Semaphore(1)
 
 @router.post("/embed_transcript", response_model=EmbedTranscriptResponse)
-def embed_transcript(req: EmbedTranscriptRequest):
-    print(embed.tokenizer, embed.model)
+async def embed_transcript(req: EmbedTranscriptRequest):
+    async with embed_sem:
+        return await run_in_threadpool(embed_transcript_sync, req)
+
+def embed_transcript_sync(req: EmbedTranscriptRequest) -> EmbedTranscriptResponse:
+    print(req)
     text = (req.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="text must be non-empty")
 
-    max_len = int(req.max_length if req.max_length is not None else settings().max_length)
+    max_len = settings().max_length
     norm = bool(req.normalize if req.normalize is not None else settings().normalize)
 
     if max_len <= 0 or max_len > 8192:
@@ -77,7 +83,6 @@ def embed_transcript(req: EmbedTranscriptRequest):
         spans=spans,
         embeddings=embs.tolist(),
     )
-
 
 def chunk_by_tokens_with_spans(text: str, chunk_tokens: int, overlap: int) -> tuple[List[str], List[Tuple[int, int]]]:
     if overlap >= chunk_tokens:
@@ -129,19 +134,6 @@ def chunk_by_tokens_with_spans(text: str, chunk_tokens: int, overlap: int) -> tu
 def embed_texts(texts: List[str], task: str, max_length: int, normalize: bool) -> torch.Tensor:
     if embed.model is None or embed.tokenizer is None:
         raise HTTPException(status_code=500, detail="load_embedding_model() or injecting props not worked")
-
-    if hasattr(embed.model, "encode"):
-        vecs = embed.model.encode(
-            texts,
-            task=task,
-            max_length=max_length,
-            batch_size=settings().batch_size,
-            show_progress_bar=False,
-            normalize_embeddings=normalize,
-        )
-        if isinstance(vecs, torch.Tensor):
-            return vecs.detach().cpu()
-        return torch.tensor(vecs, dtype=torch.float32).cpu()
 
     enc = embed.tokenizer(
         texts,
