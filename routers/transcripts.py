@@ -14,8 +14,8 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled, VideoUnavailable
 from youtube_transcript_api.proxies import GenericProxyConfig
 
-from util.loader import load_config
 from util.app_settings import AppSettings
+from util.loader import load_config
 
 router = APIRouter()
 thread_local = threading.local()
@@ -48,8 +48,10 @@ def get_transcript(
     languages: list[str] = Query(default=settings().youtube.default_languages),
 ):
     try:
+        print(video_id)
+        print(languages)
         fetched = fetch_transcript(video_id, languages)
-
+        print(fetched)
         full_text = " ".join(s.text.strip() for s in fetched.snippets if s.text and s.text.strip())
         language = getattr(fetched, "language_code", None) or getattr(fetched, "language", None)
 
@@ -154,6 +156,17 @@ def _get_thread_session() -> Session:
     if s is None:
         s = Session()
         s.trust_env = False
+
+        # Bandwidth + block-rate improvements
+        s.headers.update({
+            "Accept-Encoding": "gzip, deflate",  # compression reduces watch HTML a lot
+            "Accept-Language": "en-US,en;q=0.9",
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            ),
+        })
+
         thread_local.session = s
     return s
 
