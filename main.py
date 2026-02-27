@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from core.embed import load_embedding_model
+from core.embedding.embed import load_embedding_model
 from routers.health import router as health_router
 from routers.chat import router as chat_router
 from routers.transcripts import router as transcript_router

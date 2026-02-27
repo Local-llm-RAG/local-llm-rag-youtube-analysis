@@ -8,11 +8,14 @@ import torch
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, conint
 
-import core.embed as embed
+import core.embedding.embed as embed
 from util.app_settings import EmbeddingSettings
 from util.loader import load_config
 import asyncio
 from starlette.concurrency import run_in_threadpool
+
+from core.embedding.preprocess import preprocess_for_embedding, PreprocessConfig
+
 router = APIRouter()
 
 
@@ -54,6 +57,11 @@ def embed_transcript_sync(req: EmbedTranscriptRequest) -> EmbedTranscriptRespons
     text = (req.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="text must be non-empty")
+
+    # text = preprocess_for_embedding(
+    #     text,
+    #     PreprocessConfig(sentence_splitter="icu", drop_toc_lines=True)
+    # )
 
     max_len = settings().max_length
     norm = bool(req.normalize if req.normalize is not None else settings().normalize)
